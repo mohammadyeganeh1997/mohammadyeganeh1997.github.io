@@ -1,0 +1,57 @@
+name: Fetch URL Content and Convert to Markdown
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  fetch-content:
+    if: github.event.issue.labels.*.name == 'markdown-fetch'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Extract URL from issue
+        id: extract-url
+        run: |
+          URL=$(echo "${{ github.event.issue.body }}" | grep -oP '(http|https)://[^\s]+')
+          echo "::set-output name=url::$URL"
+      
+      - name: Fetch content from URL
+        id: fetch-content
+        run: |
+          if [ -z "${{ steps.extract-url.outputs.url }}" ]; then
+            echo "No valid URL found in the issue."
+            exit 1
+          fi
+          curl "${{ steps.extract-url.outputs.url }}" --output fetched_content.html
+
+      - name: Convert HTML to Markdown
+        id: convert-to-markdown
+        run: |
+          sudo apt-get install pandoc
+          pandoc fetched_content.html -f html -t markdown -o content.md
+
+      - name: Save content to GitHub Pages folder
+        run: |
+          mkdir -p public
+          mv content.md public/index.md
+
+      - name: Commit and Push the Changes
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          git add public/index.md
+          git commit -m "Add Markdown content fetched from ${{ steps.extract-url.outputs.url }}"
+          git push
+
+      - name: Post comment with link
+        uses: actions/github-script@v5
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              body: `The content from the URL has been fetched, converted to Markdown, and stored [here](https://YOUR_USERNAME.github.io/YOUR_REPOSITORY/).`
+            })
