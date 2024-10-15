@@ -1,57 +1,63 @@
-name: Fetch URL Content and Convert to Markdown
+name: URL Fetch
 
 on:
   issues:
     types: [opened]
 
 jobs:
-  fetch-content:
-    if: contains(github.event.issue.labels.*.name, 'content-fetch')
+  fetch_url:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Extract URL from issue
-        id: extract-url
+      - name: Extract URL from issue body
+        id: extract_url
         run: |
-          URL=$(echo "${{ github.event.issue.body }}" | grep -oP '(http|https)://[^\s]+')
-          echo "url=$URL" >> $GITHUB_ENV
+          echo "Fetching URL from issue body..."
+          ISSUE_BODY="${{ github.event.issue.body }}"
+          echo "Extracted URL: $(echo "$ISSUE_BODY" | grep -o 'https\?://[^ ]*')"
+          URL=$(echo "$ISSUE_BODY" | grep -o 'https\?://[^ ]*')
+          echo "::set-output name=url::$URL"
 
-      - name: Fetch content from URL
-        id: fetch-content
+      - name: Fetch data from URL
+        id: fetch_data
         run: |
-          if [ -z "${{ env.url }}" ]; then
-            echo "No valid URL found in the issue."
-            exit 1
-          fi
-          curl "${{ env.url }}" --output fetched_content.html
+          echo "Fetching data from the URL..."
+          URL="${{ steps.extract_url.outputs.url }}"
+          RESPONSE=$(curl -s "$URL")
+          echo "Fetched data: $RESPONSE"
+          echo "::set-output name=data::$RESPONSE"
 
-      - name: Convert HTML to Markdown
-        id: convert-to-markdown
+      - name: Create Markdown file
+        id: create_markdown
         run: |
-          sudo apt-get update && sudo apt-get install -y pandoc
-          pandoc fetched_content.html -f html -t markdown -o content.md
+          echo "Creating Markdown file..."
+          DATA="${{ steps.fetch_data.outputs.data }}"
+          FILENAME="fetched_data_$(date +%Y%m%d%H%M%S).md"
+          echo -e "# Fetched Data\n\n\`\`\`\n$DATA\n\`\`\`" > $FILENAME
+          echo "Created file: $FILENAME"
+          echo "::set-output name=markdown_file::$FILENAME"
 
-      - name: Save content to GitHub Pages folder
+      - name: Publish to GitHub Pages
         run: |
-          mkdir -p public
-          mv content.md public/index.md
-
-      - name: Commit and Push the Changes
-        run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "github-actions@github.com"
-          git add public/index.md
-          git commit -m "Add Markdown content fetched from ${{ env.url }}"
+          echo "Publishing Markdown file to GitHub Pages..."
+          FILENAME="${{ steps.create_markdown.outputs.markdown_file }}"
+          mkdir -p docs
+          cp $FILENAME docs/
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "GitHub Actions"
+          git add docs/$FILENAME
+          git commit -m "Add fetched data Markdown file"
           git push
 
-      - name: Post comment with link
-        uses: actions/github-script@v5
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              body: `The content from the URL has been fetched, converted to Markdown, and stored [here](https://YOUR_USERNAME.github.io/YOUR_REPOSITORY/).`
-            })
+      - name: Comment on issue with fetched data
+        run: |
+          echo "Posting fetched data back to the issue..."
+          DATA="${{ steps.fetch_data.outputs.data }}"
+          COMMENT_BODY="**Fetched Data:**\n\`\`\`\n$DATA\n\`\`\`\n\nYou can view the detailed output [here](https://<USERNAME>.github.io/<REPOSITORY_NAME>/docs/$FILENAME)."
+          curl -s -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments" \
+            -d "{\"body\": \"$COMMENT_BODY\"}"
