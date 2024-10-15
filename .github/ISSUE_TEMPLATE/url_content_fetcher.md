@@ -10,9 +10,8 @@ assignees: ''
 
 Paste the URL below:
 
-`[URL]`
+`https://example.com`
 
 **Additional Notes**
 
 If there’s anything specific to be mentioned about fetching this URL, provide the details here.
-
