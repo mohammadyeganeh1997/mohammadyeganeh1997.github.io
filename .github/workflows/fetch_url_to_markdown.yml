@@ -6,7 +6,7 @@ on:
 
 jobs:
   fetch-content:
-    if: github.event.issue.labels.*.name == 'markdown-fetch'
+    if: github.event.issue.labels.*.name == 'content-fetch'
     runs-on: ubuntu-latest
 
     steps:
