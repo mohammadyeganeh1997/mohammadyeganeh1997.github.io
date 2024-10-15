@@ -1,17 +1,28 @@
----
-name: URL Content Fetcher
-about: Provide a URL, and the action will fetch its content and store it in a GitHub page.
-title: "Fetch content from: "
-labels: content-fetch
-assignees: ''
----
+name: "URL Content Fetcher"
+description: Automatically fetch and convert content from provided URLs into a GitHub page.
+title: "URL Content Fetching Request"
+labels: ["content-fetch"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Thank you for using our URL Content Fetcher!** We are excited to help you extract content from the URL you provide and generate a GitHub page from it.
 
-**Provide the URL**
+        **Please follow the instructions below:**
 
-Paste the URL below:
+        1. **Paste your URL** in the field below. Make sure it starts with `http://` or `https://`.
+        2. Optionally, you can provide any additional details or instructions regarding the content to be fetched.
 
-`https://example.com`
+  - type: input
+    id: url-input
+    attributes:
+      label: Your URL
+      placeholder: "https://example.com"
+    validations:
+      required: true
 
-**Additional Notes**
-
-If there’s anything specific to be mentioned about fetching this URL, provide the details here.
+  - type: textarea
+    id: additional-notes
+    attributes:
+      label: Additional Notes (optional)
+      placeholder: "If there's anything specific to mention about the content, please provide details here."
