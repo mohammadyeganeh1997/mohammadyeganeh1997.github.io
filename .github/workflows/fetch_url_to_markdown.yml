@@ -6,7 +6,7 @@ on:
 
 jobs:
   fetch-content:
-    if: github.event.issue.labels.*.name == 'content-fetch'
+    if: contains(github.event.issue.labels.*.name, 'content-fetch')
     runs-on: ubuntu-latest
 
     steps:
@@ -17,21 +17,21 @@ jobs:
         id: extract-url
         run: |
           URL=$(echo "${{ github.event.issue.body }}" | grep -oP '(http|https)://[^\s]+')
-          echo "::set-output name=url::$URL"
-      
+          echo "url=$URL" >> $GITHUB_ENV
+
       - name: Fetch content from URL
         id: fetch-content
         run: |
-          if [ -z "${{ steps.extract-url.outputs.url }}" ]; then
+          if [ -z "${{ env.url }}" ]; then
             echo "No valid URL found in the issue."
             exit 1
           fi
-          curl "${{ steps.extract-url.outputs.url }}" --output fetched_content.html
+          curl "${{ env.url }}" --output fetched_content.html
 
       - name: Convert HTML to Markdown
         id: convert-to-markdown
         run: |
-          sudo apt-get install pandoc
+          sudo apt-get update && sudo apt-get install -y pandoc
           pandoc fetched_content.html -f html -t markdown -o content.md
 
       - name: Save content to GitHub Pages folder
@@ -44,7 +44,7 @@ jobs:
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
           git add public/index.md
-          git commit -m "Add Markdown content fetched from ${{ steps.extract-url.outputs.url }}"
+          git commit -m "Add Markdown content fetched from ${{ env.url }}"
           git push
 
       - name: Post comment with link
